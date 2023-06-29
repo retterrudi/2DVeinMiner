@@ -29,9 +29,9 @@ local DIRECTIONS = {
   { x = 1,  y = 0 }
 }
 
----============================================================================
+--[[===========================================================================
 ---         Types
----============================================================================
+---==========================================================================]]
 
 ---@alias Direction
 ---| 1 east / right
@@ -59,9 +59,9 @@ local DIRECTIONS = {
 ---@field position Position
 ---@field node integer
 
----============================================================================
+--[[===========================================================================
 ---         Functions
----============================================================================
+---==========================================================================]]
 
 ---@param graph Graph
 ---@param position Position
@@ -105,14 +105,15 @@ local function addNodeToGraph(graph, position, lastNode)
   return graph
 end
 
----============================================================================
+--[[===========================================================================
 ---         Class VeinMiner
----============================================================================
+---==========================================================================]]
 
 ---@class VeinMiner
 ---@field private graph Graph
 ---@field private lastPoint LastPoint
 ---@field private direction Direction
+---@field private rightTurnNodes integer[]
 
 
 VeinMiner = {}
@@ -135,10 +136,12 @@ VeinMiner.lastPoint = {
 
 VeinMiner.direction = 0
 
+VeinMiner.rightTurnNodes[1] = 1
+
 
 ---@private
 ---@return nil
-function VeinMiner.setup()
+function VeinMiner:setup()
   --- Turtle stands on the Block in front of the ore
   --- Check Precondions: Fuel, Chest
   --- Place Chest
@@ -149,8 +152,47 @@ end
 ---@param mineral listOfMinerals Mineral to look for
 ---@return nil
 function VeinMiner:DigVein(mineral)
+  --- TODO: VeinMiner:setup
+  while true do
+    if not VeinMiner:checkNode(mineral) then
+      break
+    end
+  end
+end
+
+---@param mineral listOfMinerals
+---@return boolean
+function VeinMiner:checkNode(mineral)
+  --- TODO: Remove early return/recursion use if-else
   --- Check right
   VeinMiner:turnRight()
+  if VeinMiner:checkAndDigDirection(mineral, true) then
+    return VeinMiner:checkNode(mineral)
+  end
+
+  --- Check Front
+  VeinMiner:turnLeft()
+  if VeinMiner:checkAndDigDirection(mineral) then
+    return VeinMiner:checkNode(mineral)
+  end
+  --- Call Dig function
+
+  --- Check Right
+  VeinMiner:turnLeft()
+  if VeinMiner:checkAndDigDirection(mineral) then
+    return VeinMiner:checkNode(mineral)
+  end
+  --- Call Dig function
+
+  --- TODO: If reached ... go back to last point of turning right
+  return false
+end
+
+---@private
+---@param mineral listOfMinerals
+---@param right boolean?
+---@return boolean
+function VeinMiner:checkAndDigDirection(mineral, right)
   local has_block, data = turtle.inspect()
   if (has_block and data.name == mineral) then
     turtle.dig()
@@ -160,26 +202,23 @@ function VeinMiner:DigVein(mineral)
         y = VeinMiner.lastPoint.position.y + DIRECTIONS[VeinMiner.direction].y
       }
 
+      --- Save last node
+      if right then
+        table.insert(VeinMiner.rightTurnNodes, VeinMiner.lastPoint.node)
+      end
+
       --- Add node to graph
       VeinMiner.graph = addNodeToGraph(VeinMiner.graph, new_positon, VeinMiner.lastPoint.node)
 
       --- Update last point
       VeinMiner.lastPoint.position = new_positon
       VeinMiner.lastPoint.node = #VeinMiner.graph
+
+      return true
     end
   end
 
-  --- TODO: Save point of last turn right
-
-  --- Check Front
-  VeinMiner:turnLeft()
-  --- Call Dig function
-
-  --- Check Right
-  VeinMiner:turnLeft()
-  --- Call Dig function
-
-  --- If reached ... go back to last point of turning right
+  return false
 end
 
 ---@private
@@ -204,9 +243,9 @@ function VeinMiner:turnLeft()
   end
 end
 
----============================================================================
----       Main
----============================================================================
+--[[===========================================================================
+---         Main
+---==========================================================================]]
 
 local function Main()
   VeinMiner:DigVein(LIST_OF_MINERALS.obsidian)

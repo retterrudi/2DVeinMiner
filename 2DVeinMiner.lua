@@ -77,7 +77,7 @@ local function findEdges(graph, position)
 
   --- Check if neighbours exist in the graph
   local lastNode = #graph
-  for i = 1, lastNode - 1, 1 do
+  for i = 1, lastNode - 1, 1 do --- lastNode - 2 bacause no need to
     for j = 1, 4, 1 do
       if (graph[i].position.x == neighbours[j].x and graph[i].position.y == neighbours[j].y) then
         table.insert(graph[i].edges, lastNode)
@@ -99,7 +99,7 @@ end
 local function addNodeToGraph(graph, position, lastNode)
   table.insert(graph, {
     position = position,
-    edges = { lastNode }
+    edges = {}
   })
   graph = findEdges(graph, position)
   return graph

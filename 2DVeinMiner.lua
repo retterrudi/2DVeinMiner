@@ -21,6 +21,12 @@ local LIST_OF_MINERALS = {
 }
 
 
+---@enum inventory_slots
+local INVENTORY_SLOTS = {
+  FUEL_SLOT = 14,
+  CHEST_SLOT = 15,
+  TORCH_SLOT = 16
+}
 
 local DIRECTIONS = {
   { x = 0,  y = 1 },
@@ -141,50 +147,61 @@ VeinMiner.rightTurnNodes[1] = 1
 
 ---@private
 ---@return nil
-function VeinMiner:setup()
+function VeinMiner:setupObsidianFarm()
+  --- TODO
   --- Turtle stands on the Block in front of the ore
   --- Check Precondions: Fuel, Chest
   --- Place Chest
   --- Dig first Block and TurnLeft once
+  if turtle.getItemD then
+
+  end
 end
 
+--- General function
 ---@private
 ---@param mineral listOfMinerals Mineral to look for
 ---@return nil
 function VeinMiner:DigVein(mineral)
-  --- TODO: VeinMiner:setup
   while true do
-    if not VeinMiner:checkNode(mineral) then
+    if VeinMiner:checkNode(mineral) then
       break
     end
   end
 end
 
+function VeinMiner:digObsidianLake()
+  VeinMiner:setupObsidianFarm()
+  local mineral = LIST_OF_MINERALS.obsidian
+  while true do
+    if VeinMiner:checkNode(mineral) then
+      break
+    end
+  end
+  --- TODO: Clean up and shutdown
+end
+
 ---@param mineral listOfMinerals
----@return boolean
+---@return boolean if back at starting positon
 function VeinMiner:checkNode(mineral)
-  --- TODO: Remove early return/recursion use if-else
   --- Check right
   VeinMiner:turnRight()
-  if VeinMiner:checkAndDigDirection(mineral, true) then
-    return VeinMiner:checkNode(mineral)
+  if not VeinMiner:checkAndDigDirection(mineral, true) then
+    --- Check front
+    VeinMiner:turnLeft()
+    if not VeinMiner:checkAndDigDirection(mineral) then
+      --- Check left
+      VeinMiner:turnLeft()
+      if not VeinMiner:checkAndDigDirection(mineral) then
+        --- Go Back to last turn right
+        --- TODO
+      end
+    end
   end
 
-  --- Check Front
-  VeinMiner:turnLeft()
-  if VeinMiner:checkAndDigDirection(mineral) then
-    return VeinMiner:checkNode(mineral)
+  if #VeinMiner.rightTurnNodes < 1 then
+    return true
   end
-  --- Call Dig function
-
-  --- Check Right
-  VeinMiner:turnLeft()
-  if VeinMiner:checkAndDigDirection(mineral) then
-    return VeinMiner:checkNode(mineral)
-  end
-  --- Call Dig function
-
-  --- TODO: If reached ... go back to last point of turning right
   return false
 end
 
@@ -213,11 +230,9 @@ function VeinMiner:checkAndDigDirection(mineral, right)
       --- Update last point
       VeinMiner.lastPoint.position = new_positon
       VeinMiner.lastPoint.node = #VeinMiner.graph
-
       return true
     end
   end
-
   return false
 end
 

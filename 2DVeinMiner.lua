@@ -135,6 +135,7 @@ local function findPath(graph, startNode, endNode)
   table.insert(open_list, startNode)
 
   graph_copy[startNode].f = 0
+  graph_copy[startNode].g = 0
 
   while #open_list >= 1 do
     local min_f_value = 20000

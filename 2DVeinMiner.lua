@@ -1,19 +1,12 @@
 --[[
-- 1 hit dead end
-- 2 build graph to last turn right
-  - calculate distance to target node
-  - calculate all neighbours
-  - for each neighbour check if in
-- 3 calculate shortest path using A*
-- 4 move on path and keep checking left
-  - if ore left dig until dead end and repeat
-  - else move till end
-    - if no ore found pop last turn right go to last turn right
-    - else dig
-- 5 if last turn right was start move to chest
+    - Missing functions:
+        - Refuel from fuel slot (don't know if fuel overflow is a real problem)
+        - Reporting to a network could be handy
 ]]
 
---- Locals
+--[[============================================================================
+---             Constants
+--============================================================================]]
 
 ---@enum listOfMinerals
 local LIST_OF_MINERALS = {
@@ -35,9 +28,9 @@ local DIRECTIONS = {
     { x = 1,  y = 0 }
 }
 
---[[===========================================================================
+--[[============================================================================
 ---         Types
----==========================================================================]]
+---===========================================================================]]
 
 ---@alias Direction
 ---| 1 east / right
@@ -256,19 +249,17 @@ function VeinMiner:checkNode(mineral)
             --- Check left
             VeinMiner:turnLeft()
             if not VeinMiner:checkAndDigDirection(mineral) then
-                --- Go Back to last turn right
-                --- TODO
                 local path = findPath(VeinMiner.graph, VeinMiner.lastPoint.node,
                     VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes])
-                --- 2 Move along the path until
-                ---   A: Turning Right is posible
-                ---   B: The destination is reached -> remove point from list
-                --- 3 Go on Checking for ore
+
+                if VeinMiner:followPath(path, mineral) then
+                    table.remove(VeinMiner.rightTurnNodes, #VeinMiner.rightTurnNodes)
+                end
             end
         end
     end
 
-    if #VeinMiner.rightTurnNodes < 1 then
+    if not #VeinMiner.rightTurnNodes >= 1 then
         return true
     end
     return false
@@ -303,6 +294,42 @@ function VeinMiner:checkAndDigDirection(mineral, right)
         end
     end
     return false
+end
+
+---@private
+---@param path integer[]
+---@param mineral listOfMinerals
+---@return nil | boolean
+function VeinMiner:followPath(path, mineral)
+    while #path >= 2 do
+        local startNode = VeinMiner.graph[table.remove(path, 1)]
+        local targetNode = VeinMiner.graph[path[1]]
+
+        local direction = nil
+
+        for i = 1, 4, 1 do
+            if startNode.position.x + DIRECTIONS[i] == targetNode.position.x and
+                startNode.position.y + DIRECTIONS[i] == targetNode.position.y then
+                direction = i
+            end
+        end
+
+        --- TODO: Optimize checking how to turn is faster than turning until
+        --- direction is right
+        while VeinMiner.direction ~= direction do
+            VeinMiner:turnRight()
+        end
+
+        turtle.forward()
+
+        VeinMiner:turnRight()
+        if VeinMiner:checkAndDigDirection(mineral, true) then
+            return false
+        else
+            VeinMiner:turnLeft()
+        end
+    end
+    return true
 end
 
 ---@private

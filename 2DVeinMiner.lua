@@ -22,10 +22,10 @@ local INVENTORY_SLOTS = {
 }
 
 local DIRECTIONS = {
-    { x = 0,  y = 1 },
+    { x = 1,  y = 0 },
     { x = 0,  y = -1 },
     { x = -1, y = 0 },
-    { x = 1,  y = 0 }
+    { x = 0,  y = 1 },
 }
 
 --[[============================================================================
@@ -195,7 +195,7 @@ VeinMiner.lastPoint = {
     }
 }
 
-VeinMiner.direction = 0
+VeinMiner.direction = 1
 
 VeinMiner.rightTurnNodes = {}
 table.insert(VeinMiner.rightTurnNodes, 1)
@@ -209,9 +209,15 @@ function VeinMiner:setupObsidianFarm()
     --- Check Precondions: Fuel, Chest
     --- Place Chest
     --- Dig first Block and TurnLeft once
-    if turtle.getItemD then
-
-    end
+    turtle.turnRight()
+    turtle.select(INVENTORY_SLOTS.CHEST_SLOT)
+    turtle.place()
+    turtle.select(1)
+    turtle.turnLeft()
+    turtle.forward()
+    turtle.digDown()
+    turtle.down()
+    turtle.turnRight()
 end
 
 --- General function

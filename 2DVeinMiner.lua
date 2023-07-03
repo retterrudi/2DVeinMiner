@@ -121,6 +121,7 @@ end
 local function findPath(graph, startNode, endNode)
     --- Setup
     local graph_copy = copy1(graph)
+    print("startNode", startNode, "targetNode", endNode)
 
     local open_list = {}
     local close_list = {}
@@ -130,8 +131,12 @@ local function findPath(graph, startNode, endNode)
     graph_copy[startNode].f = 0
     graph_copy[startNode].g = 0
 
+    -- for _, value in ipairs(graph_copy) do
+    --     print(value.position.x, value.position.y, value.edges[1], value.edges[2], value.edges[3], value.edges[4])
+    -- end
+
     while #open_list >= 1 do
-        local min_f_value = 20000
+        local min_f_value = 1000
         local min_f_index = nil
         for index_openList, value_openList in ipairs(open_list) do
             if graph_copy[value_openList].f < min_f_value then
@@ -141,8 +146,15 @@ local function findPath(graph, startNode, endNode)
         end
         local q = table.remove(open_list, min_f_index)
 
-        for index_neighbour, value_neighbour in ipairs(graph_copy[q].edges) do
+        ---DEBUG
+        -- print("Neben", graph_copy[q].edges[1], graph_copy[q].edges[2], graph_copy[q].edges[3], graph_copy[q].edges[4])
+
+        for _, value_neighbour in ipairs(graph_copy[q].edges) do
             if value_neighbour == endNode then
+                -- if #close_list < 1 then table.insert(close_list, 1, startNode) end
+                table.insert(close_list, q)
+                -- sleep(5)
+                -- break
                 return close_list
             end
 
@@ -152,17 +164,29 @@ local function findPath(graph, startNode, endNode)
                     math.abs(graph_copy[value_neighbour].position.y - graph_copy[endNode].position.y)
                 local new_f = new_g + new_h
 
-                if graph_copy[value_neighbour].f == nil or graph_copy[value_neighbour] > new_f then
+                if graph_copy[value_neighbour].f == nil or graph_copy[value_neighbour].f > new_f then
                     graph_copy[value_neighbour].g = new_g
                     graph_copy[value_neighbour].h = new_h
                     graph_copy[value_neighbour].f = new_f
                 end
+
+                table.insert(open_list, value_neighbour)
             end
         end
         table.insert(close_list, q)
         graph_copy[q].isClosed = true
     end
+    -- print("Target is not found")
+    -- for index, value in ipairs(close_list) do
+    --     print("Path", value)
+    -- end
+    -- sleep(10)
+
     table.insert(close_list, endNode)
+    print("Target is found")
+    for index, value in ipairs(close_list) do
+        print("Path", value)
+    end
     return close_list
 end
 
@@ -241,6 +265,17 @@ function VeinMiner:digObsidianLake()
         end
     end
     --- TODO: Clean up and shutdown
+    while VeinMiner.direction ~= 2 do
+        VeinMiner:turnLeft()
+    end
+    turtle.up()
+    turtle.forward()
+    turtle.turnLeft()
+    for i = 1, 16, 1 do
+        turtle.select(i)
+        turtle.drop()
+    end
+    print("Ich habe fertig!")
 end
 
 ---@param mineral listOfMinerals
@@ -255,17 +290,27 @@ function VeinMiner:checkNode(mineral)
             --- Check left
             VeinMiner:turnLeft()
             if not VeinMiner:checkAndDigDirection(mineral) then
-                local path = findPath(VeinMiner.graph, VeinMiner.lastPoint.node,
-                    VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes])
-
-                if VeinMiner:followPath(path, mineral) then
+                print("Last Node", VeinMiner.lastPoint.node)
+                print("Last right turn", VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes])
+                -- sleep(5)
+                if VeinMiner.lastPoint.node == VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes] then
                     table.remove(VeinMiner.rightTurnNodes, #VeinMiner.rightTurnNodes)
+                else
+                    -- TODO check last right turn for neighbours
+                    local path = findPath(VeinMiner.graph, VeinMiner.lastPoint.node,
+                        VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes])
+
+                    table.insert(path, VeinMiner.rightTurnNodes[#VeinMiner.rightTurnNodes])
+                    VeinMiner:followPath(path, mineral)
+                    -- if VeinMiner:followPath(path, mineral) then
+                    --     table.remove(VeinMiner.rightTurnNodes, #VeinMiner.rightTurnNodes)
+                    -- end
                 end
             end
         end
     end
 
-    if not #VeinMiner.rightTurnNodes >= 1 then
+    if #VeinMiner.rightTurnNodes < 1 then
         return true
     end
     return false
@@ -308,14 +353,21 @@ end
 ---@return nil | boolean
 function VeinMiner:followPath(path, mineral)
     while #path >= 2 do
+        VeinMiner:turnRight()
+        if VeinMiner:checkAndDigDirection(mineral, true) then
+            return false
+        else
+            VeinMiner:turnLeft()
+        end
+
         local startNode = VeinMiner.graph[table.remove(path, 1)]
         local targetNode = VeinMiner.graph[path[1]]
 
         local direction = nil
 
         for i = 1, 4, 1 do
-            if startNode.position.x + DIRECTIONS[i] == targetNode.position.x and
-                startNode.position.y + DIRECTIONS[i] == targetNode.position.y then
+            if startNode.position.x + DIRECTIONS[i].x == targetNode.position.x and
+                startNode.position.y + DIRECTIONS[i].y == targetNode.position.y then
                 direction = i
             end
         end
@@ -327,13 +379,12 @@ function VeinMiner:followPath(path, mineral)
         end
 
         turtle.forward()
-
-        VeinMiner:turnRight()
-        if VeinMiner:checkAndDigDirection(mineral, true) then
-            return false
-        else
-            VeinMiner:turnLeft()
-        end
+        local new_position = {
+            x = VeinMiner.lastPoint.position.x + DIRECTIONS[VeinMiner.direction].x,
+            y = VeinMiner.lastPoint.position.y + DIRECTIONS[VeinMiner.direction].y
+        }
+        VeinMiner.lastPoint.position = new_position
+        VeinMiner.lastPoint.node = path[1]
     end
     return true
 end
@@ -365,7 +416,7 @@ end
 ---==========================================================================]]
 
 local function Main()
-    VeinMiner:DigVein(LIST_OF_MINERALS.obsidian)
+    VeinMiner:digObsidianLake()
 end
 
 Main()

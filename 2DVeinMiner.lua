@@ -32,21 +32,19 @@ local DIRECTIONS = {
 ---| 3 west / left
 ---| 4 north / up
 
-
 ---@class Position
 ---@field x integer
 ---@field y integer
 
-
 ---@class Node
----@field parent integer parent whilst searching
----@field edges integer[] references to neighbouring nodes
----@field position Position reletiv position to the starting point
-
+---@field position Position Reletiv position to the starting point
+---@field edges integer[] Unordered list of indeces of neighbouring nodes
+---@field g_value number Cost to reach this node
+---@field h_value number Cost to target node (distance)
+---@field f_value number Final cost for this node
 
 ---@class Graph
 ---@field nodes Node[]
-
 
 ---@class LastPoint
 ---@field position Position
@@ -85,6 +83,21 @@ local function printLevel(level)
     end
 end
 
+---@param graph Graph
+---@return nil
+local function printGraph(graph)
+    for _, node in ipairs(graph) do
+        print(
+            node.position.x,
+            node.position.y,
+            node.edges[1],
+            node.edges[2],
+            node.edges[3],
+            node.edges[4]
+        )
+    end
+end
+
 --[[===========================================================================
 ---         Example
 ---==========================================================================]]
@@ -102,6 +115,7 @@ local level1 = {
     { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} } -- 10
 --   01,02,03,04,05,06,07,08,09,10
 
+--- level1 node numbered
 local level2 = {
     { 0, 0, 0, 0, 0,  0,  0,  0, 0, 0 },  -- 01
     { 0, 0, 0, 0, 18, 17, 16, 0, 0, 0 },  -- 02
@@ -143,6 +157,12 @@ local exampleGraph = {
     { position = { x = 1, y = 2 }, edges = { 24, 5, 11, 22 } },  -- 25
 }
 
+--[[===========================================================================
+---         Main
+---==========================================================================]]
 
+function Main()
+    print("Hello World!")
+end
 
-
+Main()

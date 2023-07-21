@@ -42,6 +42,7 @@ local DIRECTIONS = {
 ---@field g_value number Cost to reach this node
 ---@field h_value number Cost to target node (distance)
 ---@field f_value number Final cost for this node
+---@field isClosed boolean
 
 ---@class Graph
 ---@field nodes Node[]
@@ -97,6 +98,95 @@ local function printGraph(graph)
         )
     end
 end
+
+--@param graph Graph
+--@param startNode integer
+--@param endNode integer
+local function findPath(graph, startNode, endNode)
+    local copiedGraph = copyTable(graph)
+
+    local openList = {}
+    local closeList = {}
+
+    table.insert(openList, startNode)
+
+
+    copiedGraph[startNode].f = 0
+    copiedGraph[startNode].g = 0
+
+    while #openList >= 1 do
+        local minFValue = 1000
+        local minFIndex = nil
+        --DEBUG
+        print("OpenList:")
+        for _, value in ipairs(openList) do
+            local cost = 'nil'
+            if copiedGraph[value].f ~= nil then
+                cost = copiedGraph[value].f
+            end
+            print('Node: ' .. value .. ' Cost: ' .. cost)
+        end
+        print("CloseList:")
+        for _, value in ipairs(closeList) do
+            local cost = 'nil'
+            if copiedGraph[value].f ~= nil then
+                cost = copiedGraph[value].f
+            end
+            print('Node: ' .. value .. ' Cost: ' .. cost)
+        end
+
+        -- find node with lowest f in openList
+        for indexOpenList, valueOpenList in ipairs(openList) do
+            if copiedGraph[valueOpenList].f < minFValue then
+                minFIndex = indexOpenList
+                minFValue = copiedGraph[valueOpenList].f
+            end
+        end
+
+        local q =  table.remove(openList, minFIndex)
+
+        for _, valueNeighbour in ipairs(copiedGraph[q].edges) do
+            if valueNeighbour == endNode then
+                table.insert(closeList, q)
+                return closeList
+            end
+
+            local newG = copiedGraph[q].g + 1
+            local newH = math.abs(copiedGraph[valueNeighbour].position.x - copiedGraph[endNode].position.x) +
+               math.abs(copiedGraph[valueNeighbour].position.y - copiedGraph[endNode].position.y)
+            local newF = newG + newH
+
+            local skip = false
+            for _, value in ipairs(openList) do
+                if value == valueNeighbour then
+                    if newF >= copiedGraph[valueNeighbour].f then
+                        skip = true
+                    end
+                end
+            end
+
+            if not copiedGraph[valueNeighbour].isClosed or skip then
+                table.insert(openList, valueNeighbour)
+                copiedGraph[valueNeighbour].g = newG
+                copiedGraph[valueNeighbour].h = newH
+                copiedGraph[valueNeighbour].f = newF
+            else
+                if copiedGraph[valueNeighbour].f > newF then
+                    copiedGraph[valueNeighbour].g = newG
+                    copiedGraph[valueNeighbour].h = newH
+                    copiedGraph[valueNeighbour].f = newF
+                end
+            end
+        end
+
+        table.insert(closeList, q)
+        copiedGraph[q].isClosed = true
+    end
+
+    table.insert(closeList, endNode)
+    return closeList
+end
+
 
 --[[===========================================================================
 ---         Example
@@ -162,7 +252,10 @@ local exampleGraph = {
 ---==========================================================================]]
 
 function Main()
-    print("Hello World!")
+    local path = findPath(exampleGraph, 1, 16)
+    for index, value in ipairs(path) do
+        print(index .. ' ' .. value)
+    end
 end
 
 Main()

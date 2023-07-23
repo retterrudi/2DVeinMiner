@@ -102,6 +102,7 @@ end
 --@param graph Graph
 --@param startNode integer
 --@param endNode integer
+--@return path integer[]
 local function findPath(graph, startNode, endNode)
     local copiedGraph = copyTable(graph)
 
@@ -117,6 +118,7 @@ local function findPath(graph, startNode, endNode)
     while #openList >= 1 do
         local minFValue = 1000
         local minFIndex = nil
+
         --DEBUG
         print("OpenList:")
         for _, value in ipairs(openList) do
@@ -188,6 +190,124 @@ local function findPath(graph, startNode, endNode)
 end
 
 
+---@param graph any
+---@param startNode any
+---@param endNode any
+---@return integer[]
+local function createPathFromGraph(graph, startNode, endNode)
+    -- DEBUG
+    for index, value in ipairs(graph) do
+        local parent = "nil"
+        if value.parent ~= nil then parent = value.parent end
+        print("Node: " .. index .. ", Parent: " .. parent)
+    end
+    -- DEBUG
+    local nodes = {startNode, endNode}
+    local currentNode = endNode
+    while true do
+        if graph[currentNode].parent == startNode then
+            return nodes
+        else
+            currentNode = graph[currentNode].parent
+            table.insert(nodes, 2, currentNode)
+        end
+    end
+end
+
+---comment
+---@param graph Graph
+---@param startNode integer
+---@param endNode integer 
+---@return integer[]
+local function aStarPathFinder(graph, startNode, endNode)
+    local copiedGraph = copyTable(graph)
+
+    local openList = {}
+    local closeList = {}
+
+    table.insert(openList, startNode)
+
+    copiedGraph[startNode].f = 0
+    copiedGraph[startNode].g = 0
+    copiedGraph[startNode].parent = nil
+
+    while #openList >= 1 do
+        -- DEBUG
+        for index, value in ipairs(openList) do
+            
+        end
+
+
+        -- find node with most low f in openList
+        -- prever lower g over lower h
+        local minFValue = 10000000
+        local minFIndex = nil
+
+        local lowCostTable = {}     -- holds all values that where at some 
+                                    -- point lower than the minFValue
+
+        for openListIndex, openListValue in ipairs(openList) do
+            if copiedGraph[openListValue].f <= minFValue then
+                table.insert(
+                    lowCostTable,
+                    {index = openListIndex, node = openListValue})
+                minFValue = copiedGraph[openListValue].f
+            end
+        end
+
+        local minGValue = 10000000
+        for _, valueLowCostTable in ipairs(lowCostTable) do
+            if copiedGraph[valueLowCostTable.node].f == minFValue then
+                if copiedGraph[valueLowCostTable.node].g < minGValue then
+                    minGValue = copiedGraph[valueLowCostTable.node].g
+                    minFIndex = valueLowCostTable.index
+                end
+            end
+        end
+
+        local q = table.remove(openList, minFIndex)
+
+        for _, nodeNeighbour in ipairs(copiedGraph[q].edges) do
+
+            -- Check for destination
+            if nodeNeighbour == endNode then
+                copiedGraph[endNode].parent = q
+                return createPathFromGraph(copiedGraph, startNode, endNode)
+            end
+
+            -- Calculate new cost
+            local newG = copiedGraph[q].g + 1
+            local newH = math.abs(copiedGraph[nodeNeighbour].position.x - copiedGraph[endNode].position.x) +
+               math.abs(copiedGraph[nodeNeighbour].position.y - copiedGraph[endNode].position.y)
+            local newF = newG + newH
+
+            -- Check openList
+            local skip = false
+            for _, valueOpenList in ipairs(openList) do
+                if valueOpenList == nodeNeighbour then
+                    if copiedGraph[nodeNeighbour].f < newF or
+                        (copiedGraph[nodeNeighbour].f == newF and copiedGraph[nodeNeighbour].g < newG) then
+
+                        skip = true
+                    end
+                end
+            end
+
+            if not (skip or copiedGraph[nodeNeighbour].isClosed) then
+                copiedGraph[nodeNeighbour].f = newF
+                copiedGraph[nodeNeighbour].g = newG
+                copiedGraph[nodeNeighbour].h = newH
+                copiedGraph[nodeNeighbour].parent = q
+                table.insert(openList, nodeNeighbour)
+            end
+            table.insert(closeList, q)
+            copiedGraph[q].isClosed = true
+        end
+    end
+    return createPathFromGraph(copiedGraph, startNode, endNode)
+end
+
+
 --[[===========================================================================
 ---         Example
 ---==========================================================================]]
@@ -252,7 +372,7 @@ local exampleGraph = {
 ---==========================================================================]]
 
 function Main()
-    local path = findPath(exampleGraph, 1, 16)
+    local path = aStarPathFinder(exampleGraph, 1, 16)
     for index, value in ipairs(path) do
         print(index .. ' ' .. value)
     end

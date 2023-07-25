@@ -99,109 +99,11 @@ local function printGraph(graph)
     end
 end
 
---@param graph Graph
---@param startNode integer
---@param endNode integer
---@return path integer[]
-local function findPath(graph, startNode, endNode)
-    local copiedGraph = copyTable(graph)
-
-    local openList = {}
-    local closeList = {}
-
-    table.insert(openList, startNode)
-
-
-    copiedGraph[startNode].f = 0
-    copiedGraph[startNode].g = 0
-
-    while #openList >= 1 do
-        local minFValue = 1000
-        local minFIndex = nil
-
-        --DEBUG
-        print("OpenList:")
-        for _, value in ipairs(openList) do
-            local cost = 'nil'
-            if copiedGraph[value].f ~= nil then
-                cost = copiedGraph[value].f
-            end
-            print('Node: ' .. value .. ' Cost: ' .. cost)
-        end
-        print("CloseList:")
-        for _, value in ipairs(closeList) do
-            local cost = 'nil'
-            if copiedGraph[value].f ~= nil then
-                cost = copiedGraph[value].f
-            end
-            print('Node: ' .. value .. ' Cost: ' .. cost)
-        end
-
-        -- find node with lowest f in openList
-        for indexOpenList, valueOpenList in ipairs(openList) do
-            if copiedGraph[valueOpenList].f < minFValue then
-                minFIndex = indexOpenList
-                minFValue = copiedGraph[valueOpenList].f
-            end
-        end
-
-        local q =  table.remove(openList, minFIndex)
-
-        for _, valueNeighbour in ipairs(copiedGraph[q].edges) do
-            if valueNeighbour == endNode then
-                table.insert(closeList, q)
-                return closeList
-            end
-
-            local newG = copiedGraph[q].g + 1
-            local newH = math.abs(copiedGraph[valueNeighbour].position.x - copiedGraph[endNode].position.x) +
-               math.abs(copiedGraph[valueNeighbour].position.y - copiedGraph[endNode].position.y)
-            local newF = newG + newH
-
-            local skip = false
-            for _, value in ipairs(openList) do
-                if value == valueNeighbour then
-                    if newF >= copiedGraph[valueNeighbour].f then
-                        skip = true
-                    end
-                end
-            end
-
-            if not copiedGraph[valueNeighbour].isClosed or skip then
-                table.insert(openList, valueNeighbour)
-                copiedGraph[valueNeighbour].g = newG
-                copiedGraph[valueNeighbour].h = newH
-                copiedGraph[valueNeighbour].f = newF
-            else
-                if copiedGraph[valueNeighbour].f > newF then
-                    copiedGraph[valueNeighbour].g = newG
-                    copiedGraph[valueNeighbour].h = newH
-                    copiedGraph[valueNeighbour].f = newF
-                end
-            end
-        end
-
-        table.insert(closeList, q)
-        copiedGraph[q].isClosed = true
-    end
-
-    table.insert(closeList, endNode)
-    return closeList
-end
-
-
----@param graph any
----@param startNode any
----@param endNode any
+---@param graph Graph
+---@param startNode integer Index of start node
+---@param endNode integer Index of target node
 ---@return integer[]
 local function createPathFromGraph(graph, startNode, endNode)
-    -- DEBUG
-    for index, value in ipairs(graph) do
-        local parent = "nil"
-        if value.parent ~= nil then parent = value.parent end
-        print("Node: " .. index .. ", Parent: " .. parent)
-    end
-    -- DEBUG
     local nodes = {startNode, endNode}
     local currentNode = endNode
     while true do
@@ -214,7 +116,6 @@ local function createPathFromGraph(graph, startNode, endNode)
     end
 end
 
----comment
 ---@param graph Graph
 ---@param startNode integer
 ---@param endNode integer 
@@ -232,12 +133,6 @@ local function aStarPathFinder(graph, startNode, endNode)
     copiedGraph[startNode].parent = nil
 
     while #openList >= 1 do
-        -- DEBUG
-        for index, value in ipairs(openList) do
-            
-        end
-
-
         -- find node with most low f in openList
         -- prever lower g over lower h
         local minFValue = 10000000
@@ -307,6 +202,226 @@ local function aStarPathFinder(graph, startNode, endNode)
     return createPathFromGraph(copiedGraph, startNode, endNode)
 end
 
+---@param graph Graph
+---@param position Position Position of the new Node (of which to find the edges of existing nodes)
+---@return Graph
+local function addNewEdges(graph, position)
+    local neighbours = {}
+    for i = 1, 4, 1 do
+        neighbours[i] = {
+            x = position.x + DIRECTIONS[i].x,
+            y = position.y + DIRECTIONS[i].y
+        }
+    end
+
+    local lastNode = #graph
+    for i = 1, lastNode - 1, 1 do
+        for j = 1, 4, 1 do
+            if (graph[i].position.x == neighbours[j].x and graph[i].position.y == neighbours[j].y) then
+                table.insert(graph[i].edges, lastNode)
+                table.insert(graph[lastNode].edges, i)
+            end
+
+            if #graph[lastNode].edges == 4 then
+                break
+            end
+        end
+    end
+    return graph
+end
+
+---@param graph Graph
+---@param position Position Position of the new node
+---@return Graph
+local function addNodeToGraph(graph, position)
+    table.insert(graph, {
+        position = position,
+        edges = {}
+    })
+    graph = addNewEdges(graph, position)
+    return graph
+end
+
+--[[===========================================================================
+---         Class: Miner
+---==========================================================================]]
+
+local Miner = {}
+
+Miner.graph = {{
+    edges = {},
+    position = {
+        x = 0,
+        y = 0
+    }
+}}
+
+
+Miner.lastPoint = {
+    node = 1,
+    position = {
+        x = 0,
+        y = 0
+    }
+}
+
+Miner.direction = 1
+
+Miner.rightTurnNodes = {}
+table.insert(Miner.rightTurnNodes, 1)
+
+---@private
+function Miner:TurnRight()
+    turtle.turnRight()
+    if Miner.direction == 4 then
+        Miner.direction = 1
+    else
+        Miner.direction = Miner.direction + 1
+    end
+end
+
+---@private
+function Miner:TurnLeft()
+    turtle.turnLeft()
+    if Miner.direction == 1 then
+        Miner.direction = 4
+    else
+        Miner.direction = Miner.direction - 1
+    end
+end
+
+---@private
+function Miner:SetupObsidianFarm()
+    turtle.turnRight()
+    turtle.select(INVENTORY_SLOTS.CHEST_SLOT)
+    turtle.place()
+    turtle.select(1)
+    turtle.turnLeft()
+    turtle.forward()
+    turtle.digDown()
+    turtle.down()
+    turtle.turnRight()
+end
+
+---@param mineral listOfMinerals
+---@param right boolean?
+---@return boolean
+function Miner:CheckAndDigDirection(mineral, right)
+    local hasBlock, data = turtle.inspect()
+    if (hasBlock and data.name == mineral) then
+        turtle.dig()
+        if turtle.forward() then
+            local newPosition = {
+                x = Miner.lastPoint.position.x + DIRECTIONS[Miner.direction].x,
+                y = Miner.lastPoint.position.y + DIRECTIONS[Miner.direction].y,
+            }
+
+            if right then
+                table.insert(Miner.rightTurnNodes, Miner.lastPoint.node)
+            end
+
+            Miner.graph = addNodeToGraph(Miner.graph, newPosition)
+
+            Miner.lastPoint.position = newPosition
+            Miner.lastPoint.node = #Miner.graph
+            return true
+        end
+    end
+    return false
+end
+
+function Miner:FollowPath(path, mineral)
+    while #path >= 2 do
+        Miner:TurnRight()
+        if Miner:CheckAndDigDirection(mineral, true) then
+            return false
+        else
+            Miner:TurnLeft()
+        end
+
+        local startNode = Miner.graph[table.remove(path, 1)]
+        local targetNode = Miner.graph[path[1]]
+
+        local direction = nil
+
+        for i = 1, 4, 1 do
+            if startNode.position.x + DIRECTIONS[i].x == targetNode.position.x and
+                startNode.position.y + DIRECTIONS[i].y == targetNode.position.y then
+                direction = i
+            end
+        end
+
+        while Miner.direction ~= direction do
+            Miner:TurnRight()
+        end
+
+        turtle.forward()
+        local newPosition = {
+            x = Miner.lastPoint.position.x + DIRECTIONS[Miner.direction].x,
+            y = Miner.lastPoint.position.y + DIRECTIONS[Miner.direction].y
+        }
+        Miner.lastPoint.position = newPosition
+        Miner.lastPoint.node = path[1]
+    end
+    return true
+end
+
+---@param mineral listOfMinerals
+---@return boolean
+function Miner:CheckNode(mineral)
+    -- Check right
+    Miner:TurnRight()
+    if not Miner:CheckAndDigDirection(mineral, true) then
+        -- Check front
+        Miner:TurnLeft()
+        if not Miner:CheckAndDigDirection(mineral) then
+            -- Check left
+            Miner:TurnLeft()
+            if not Miner:CheckAndDigDirection(mineral) then
+                if Miner.lastPoint.node == Miner.rightTurnNodes[#Miner.rightTurnNodes] then
+                    table.remove(Miner.rightTurnNodes, #Miner.rightTurnNodes)
+                else
+                    local path = aStarPathFinder(
+                        Miner.graph,
+                        Miner.lastPoint.node,
+                        Miner.rightTurnNodes[#Miner.rightTurnNodes])
+
+                    if Miner:FollowPath(path, mineral) then
+                        table.remove(Miner.rightTurnNodes, #Miner.rightTurnNodes)
+                    end
+                end
+            end
+        end
+    end
+
+    if #Miner.rightTurnNodes < 1 then
+        return true
+    else
+        return false
+    end
+end
+
+function Miner:DigObsidianLake()
+    Miner:SetupObsidianFarm()
+    local mineral = LIST_OF_MINERALS.obsidian
+    while true do
+        if Miner:CheckNode(mineral) then
+            break
+        end
+    end
+
+    while Miner.direction ~= 2 do
+        Miner:TurnLeft()
+    end
+    turtle.up()
+    turtle.forward()
+    turtle.turnLeft()
+    for i = 1, 16, 1 do
+        turtle.select(i)
+        turtle.drop()
+    end
+    print("Ich habe fertig")
+end
 
 --[[===========================================================================
 ---         Example
@@ -372,10 +487,7 @@ local exampleGraph = {
 ---==========================================================================]]
 
 function Main()
-    local path = aStarPathFinder(exampleGraph, 1, 16)
-    for index, value in ipairs(path) do
-        print(index .. ' ' .. value)
-    end
+    Miner:DigObsidianLake()
 end
 
 Main()

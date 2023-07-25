@@ -246,6 +246,11 @@ end
 ---         Class: Miner
 ---==========================================================================]]
 
+---@class Miner
+---@field graph Graph
+---@field lastPoint {node: integer, position: Position}
+---@field direction Direction
+---@field rightTurnNodes integer[]
 local Miner = {}
 
 Miner.graph = {{
@@ -303,6 +308,7 @@ function Miner:SetupObsidianFarm()
     turtle.turnRight()
 end
 
+---@private
 ---@param mineral listOfMinerals
 ---@param right boolean?
 ---@return boolean
@@ -330,6 +336,10 @@ function Miner:CheckAndDigDirection(mineral, right)
     return false
 end
 
+---@private
+---@param path integer[] List of node indeces defining a path
+---@param mineral listOfMinerals
+---@return boolean
 function Miner:FollowPath(path, mineral)
     while #path >= 2 do
         Miner:TurnRight()
@@ -366,6 +376,7 @@ function Miner:FollowPath(path, mineral)
     return true
 end
 
+---@private
 ---@param mineral listOfMinerals
 ---@return boolean
 function Miner:CheckNode(mineral)

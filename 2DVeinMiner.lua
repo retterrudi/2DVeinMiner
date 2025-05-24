@@ -32,12 +32,12 @@ local DIRECTIONS = {
 ---| 3 west / left
 ---| 4 north / up
 
----@class Position
+---@class Position2D
 ---@field x integer
 ---@field y integer
 
 ---@class Node
----@field position Position Reletiv position to the starting point
+---@field position Position2D Reletiv position to the starting point
 ---@field edges integer[] Unordered list of indeces of neighbouring nodes
 ---@field g_value number Cost to reach this node
 ---@field h_value number Cost to target node (distance)
@@ -48,7 +48,7 @@ local DIRECTIONS = {
 ---@field nodes Node[]
 
 ---@class LastPoint
----@field position Position
+---@field position Position2D
 ---@field node integer
 
 --[[===========================================================================
@@ -117,9 +117,9 @@ local function createPathFromGraph(graph, startNode, endNode)
 end
 
 ---@param graph Graph
----@param startNode integer
----@param endNode integer 
----@return integer[]
+---@param startNode integer Starting node in the graph
+---@param endNode integer Target node in the graph
+---@return integer[] path Path consisting of nodes in a graph
 local function aStarPathFinder(graph, startNode, endNode)
     local copiedGraph = copyTable(graph)
 
@@ -203,7 +203,7 @@ local function aStarPathFinder(graph, startNode, endNode)
 end
 
 ---@param graph Graph
----@param position Position Position of the new Node (of which to find the edges of existing nodes)
+---@param position Position2D Position of the new Node (of which to find the edges of existing nodes)
 ---@return Graph
 local function addNewEdges(graph, position)
     local neighbours = {}
@@ -231,7 +231,7 @@ local function addNewEdges(graph, position)
 end
 
 ---@param graph Graph
----@param position Position Position of the new node
+---@param position Position2D Position of the new node
 ---@return Graph
 local function addNodeToGraph(graph, position)
     table.insert(graph, {
@@ -248,19 +248,18 @@ end
 
 ---@class Miner
 ---@field graph Graph
----@field lastPoint {node: integer, position: Position}
+---@field lastPoint {node: integer, position: Position2D}
 ---@field direction Direction
 ---@field rightTurnNodes integer[]
 local Miner = {}
 
-Miner.graph = {{
-    edges = {},
-    position = {
-        x = 0,
-        y = 0
-    }
-}}
-
+-- Miner.graph = {{
+--     edges = {},
+--     position = {
+--         x = 0,
+--         y = 0
+--     }
+-- }}
 
 Miner.lastPoint = {
     node = 1,

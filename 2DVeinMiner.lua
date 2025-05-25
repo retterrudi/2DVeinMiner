@@ -32,12 +32,12 @@ local DIRECTIONS = {
 ---| 3 west / left
 ---| 4 north / up
 
----@class Position
+---@class Position2D
 ---@field x integer
 ---@field y integer
 
 ---@class Node
----@field position Position Reletiv position to the starting point
+---@field position Position2D Reletiv position to the starting point
 ---@field edges integer[] Unordered list of indeces of neighbouring nodes
 ---@field g_value number Cost to reach this node
 ---@field h_value number Cost to target node (distance)
@@ -48,8 +48,15 @@ local DIRECTIONS = {
 ---@field nodes Node[]
 
 ---@class LastPoint
----@field position Position
+---@field position Position2D
 ---@field node integer
+
+---@class Miner
+---@field graph Graph
+---@field lastPoint { node: integer, position: Position2D }
+---@field direction Direction
+---@field rightTurnNodes integer[]
+
 
 --[[===========================================================================
 ---         Functions
@@ -117,9 +124,9 @@ local function createPathFromGraph(graph, startNode, endNode)
 end
 
 ---@param graph Graph
----@param startNode integer
----@param endNode integer 
----@return integer[]
+---@param startNode integer Starting node in the graph
+---@param endNode integer Target node in the graph
+---@return integer[] path Path consisting of nodes in a graph
 local function aStarPathFinder(graph, startNode, endNode)
     local copiedGraph = copyTable(graph)
 
@@ -203,7 +210,7 @@ local function aStarPathFinder(graph, startNode, endNode)
 end
 
 ---@param graph Graph
----@param position Position Position of the new Node (of which to find the edges of existing nodes)
+---@param position Position2D Position of the new Node (of which to find the edges of existing nodes)
 ---@return Graph
 local function addNewEdges(graph, position)
     local neighbours = {}
@@ -231,7 +238,7 @@ local function addNewEdges(graph, position)
 end
 
 ---@param graph Graph
----@param position Position Position of the new node
+---@param position Position2D Position of the new node
 ---@return Graph
 local function addNodeToGraph(graph, position)
     table.insert(graph, {
@@ -242,61 +249,73 @@ local function addNodeToGraph(graph, position)
     return graph
 end
 
---[[===========================================================================
----         Class: Miner
----==========================================================================]]
 
----@class Miner
----@field graph Graph
----@field lastPoint {node: integer, position: Position}
----@field direction Direction
----@field rightTurnNodes integer[]
-local Miner = {}
+-- local Miner = {}
 
-Miner.graph = {{
-    edges = {},
-    position = {
-        x = 0,
-        y = 0
+---
+---@return Miner miner
+local function initializeMiner()
+    local miner = {}
+
+    miner.lastPoint = {
+        node = 1,
+        position = {
+            x = 0,
+            y = 0
+        }
     }
-}}
 
+    miner.direction = 1
 
-Miner.lastPoint = {
-    node = 1,
-    position = {
-        x = 0,
-        y = 0
-    }
-}
+    miner.rightTurnNodes = {}
+    -- Insert the first node/starting node to the list of right turns
+    table.insert(miner.rightTurnNodes, 1)
 
-Miner.direction = 1
+    return miner
+end
 
-Miner.rightTurnNodes = {}
-table.insert(Miner.rightTurnNodes, 1)
+-- Miner.lastPoint = {
+--     node = 1,
+--     position = {
+--         x = 0,
+--         y = 0
+--     }
+-- }
 
----@private
-function Miner:TurnRight()
+-- Miner.direction = 1
+
+-- Miner.rightTurnNodes = {}
+-- table.insert(Miner.rightTurnNodes, 1)
+
+---@param miner Miner
+---@return Miner miner
+local function minerTurnRight(miner)
     turtle.turnRight()
-    if Miner.direction == 4 then
-        Miner.direction = 1
+    if miner.direction == 4 then
+        miner.direction = 1
     else
-        Miner.direction = Miner.direction + 1
+        miner.direction = miner.direction + 1
     end
+
+    return miner
 end
 
----@private
-function Miner:TurnLeft()
+---@param miner Miner
+---@return Miner miner
+local function minerTurnLeft(miner)
     turtle.turnLeft()
-    if Miner.direction == 1 then
-        Miner.direction = 4
+    if miner.direction == 1 then
+        miner.direction = 4
     else
-        Miner.direction = Miner.direction - 1
+        miner.direction = miner.direction - 1
     end
+
+    return miner
 end
 
----@private
-function Miner:SetupObsidianFarm()
+--- Setup a farm by placing a chest for the output and digging into the 2D area
+---@return nil
+local function setupObsidianFarm()
     turtle.turnRight()
     turtle.select(INVENTORY_SLOTS.CHEST_SLOT)
     turtle.place()
@@ -309,48 +328,55 @@ function Miner:SetupObsidianFarm()
 end
 
 ---@private
+---@param miner Miner
 ---@param mineral listOfMinerals
 ---@param right boolean?
----@return boolean
-function Miner:CheckAndDigDirection(mineral, right)
+---@return Miner miner Modified Miner object
+---@return boolean targetBlockFoundAndMined Indicate wheather the target mineral was in front of the miner and could be mined
+local function minerCheckAndDigDirection(miner, mineral, right)
     local hasBlock, data = turtle.inspect()
     if (hasBlock and data.name == mineral) then
         turtle.dig()
         if turtle.forward() then
             local newPosition = {
-                x = Miner.lastPoint.position.x + DIRECTIONS[Miner.direction].x,
-                y = Miner.lastPoint.position.y + DIRECTIONS[Miner.direction].y,
+                x = miner.lastPoint.position.x + DIRECTIONS[miner.direction].x,
+                y = miner.lastPoint.position.y + DIRECTIONS[miner.direction].y,
             }
 
             if right then
-                table.insert(Miner.rightTurnNodes, Miner.lastPoint.node)
+                table.insert(miner.rightTurnNodes, miner.lastPoint.node)
             end
 
-            Miner.graph = addNodeToGraph(Miner.graph, newPosition)
+            miner.graph = addNodeToGraph(miner.graph, newPosition)
 
-            Miner.lastPoint.position = newPosition
-            Miner.lastPoint.node = #Miner.graph
-            return true
+            miner.lastPoint.position = newPosition
+            miner.lastPoint.node = #miner.graph
+            return miner, true
         end
     end
-    return false
+
+    return miner, false
 end
 
 ---@private
 ---@param path integer[] List of node indeces defining a path
 ---@param mineral listOfMinerals
----@return boolean
-function Miner:FollowPath(path, mineral)
+---@return Miner miner Modified Miner object 
+---@return boolean reachedPathsEnd Indicate wheather the end of the path was reached
+local function minerFollowPath(miner, path, mineral)
     while #path >= 2 do
-        Miner:TurnRight()
-        if Miner:CheckAndDigDirection(mineral, true) then
-            return false
+        miner = minerTurnRight(miner)
+
+        local  couldMineMineral
+        miner, couldMineMineral = minerCheckAndDigDirection(miner, mineral, true)
+        if couldMineMineral then
+            return miner, false
         else
-            Miner:TurnLeft()
+            miner = minerTurnLeft(miner)
         end
 
-        local startNode = Miner.graph[table.remove(path, 1)]
-        local targetNode = Miner.graph[path[1]]
+        local startNode = miner.graph[table.remove(path, 1)]
+        local targetNode = miner.graph[path[1]]
 
         local direction = nil
 
@@ -361,69 +387,82 @@ function Miner:FollowPath(path, mineral)
             end
         end
 
-        while Miner.direction ~= direction do
-            Miner:TurnRight()
+        while miner.direction ~= direction do
+            miner = minerTurnRight(miner)
         end
 
         turtle.forward()
         local newPosition = {
-            x = Miner.lastPoint.position.x + DIRECTIONS[Miner.direction].x,
-            y = Miner.lastPoint.position.y + DIRECTIONS[Miner.direction].y
+            x = miner.lastPoint.position.x + DIRECTIONS[miner.direction].x,
+            y = miner.lastPoint.position.y + DIRECTIONS[miner.direction].y
         }
-        Miner.lastPoint.position = newPosition
-        Miner.lastPoint.node = path[1]
+        miner.lastPoint.position = newPosition
+        miner.lastPoint.node = path[1]
     end
-    return true
+    return miner, true
 end
 
 ---@private
+---@param miner Miner
 ---@param mineral listOfMinerals
----@return boolean
-function Miner:CheckNode(mineral)
+---@return Miner miner
+---@return boolean finishedNodeAndAllNeighbours
+local function minerCheckNode(miner, mineral)
     -- Check right
-    Miner:TurnRight()
-    if not Miner:CheckAndDigDirection(mineral, true) then
+    miner = minerTurnRight(miner)
+    local couldMineMineral
+    miner, couldMineMineral = minerCheckAndDigDirection(miner, mineral, true)
+    if not couldMineMineral then
         -- Check front
-        Miner:TurnLeft()
-        if not Miner:CheckAndDigDirection(mineral) then
+        miner = minerTurnLeft(miner)
+        miner, couldMineMineral = minerCheckAndDigDirection(miner, mineral)
+        if not couldMineMineral then
             -- Check left
-            Miner:TurnLeft()
-            if not Miner:CheckAndDigDirection(mineral) then
-                if Miner.lastPoint.node == Miner.rightTurnNodes[#Miner.rightTurnNodes] then
-                    table.remove(Miner.rightTurnNodes, #Miner.rightTurnNodes)
+            miner = minerTurnLeft(miner)
+            miner, couldMineMineral = minerCheckAndDigDirection(miner, mineral)
+            if not couldMineMineral then
+                if miner.lastPoint.node == miner.rightTurnNodes[#miner.rightTurnNodes] then
+                    table.remove(miner.rightTurnNodes, #miner.rightTurnNodes)
                 else
                     local path = aStarPathFinder(
-                        Miner.graph,
-                        Miner.lastPoint.node,
-                        Miner.rightTurnNodes[#Miner.rightTurnNodes])
+                        miner.graph,
+                        miner.lastPoint.node,
+                        miner.rightTurnNodes[#miner.rightTurnNodes])
 
-                    if Miner:FollowPath(path, mineral) then
-                        table.remove(Miner.rightTurnNodes, #Miner.rightTurnNodes)
+                    local endOfPathReached
+                    miner, endOfPathReached = minerFollowPath(miner, path, mineral)
+                    if endOfPathReached then
+                        table.remove(miner.rightTurnNodes, #miner.rightTurnNodes)
                     end
                 end
             end
         end
     end
 
-    if #Miner.rightTurnNodes < 1 then
-        return true
+    if #miner.rightTurnNodes < 1 then
+        return miner, true
     else
-        return false
+        return miner, false
     end
 end
 
-function Miner:DigObsidianLake()
-    Miner:SetupObsidianFarm()
-    local mineral = LIST_OF_MINERALS.obsidian
+---
+---@param miner Miner
+---@param mineral listOfMinerals
+local function minerDigObsidianLake(miner, mineral)
+    setupObsidianFarm()
     while true do
-        if Miner:CheckNode(mineral) then
+        local allNodesFinished
+        miner, allNodesFinished = minerCheckNode(miner, mineral)
+        if allNodesFinished then
             break
         end
     end
 
-    while Miner.direction ~= 2 do
-        Miner:TurnLeft()
+    while miner.direction ~= 2 do
+        miner = minerTurnLeft(miner)
     end
+
     turtle.up()
     turtle.forward()
     turtle.turnLeft()
@@ -431,7 +470,8 @@ function Miner:DigObsidianLake()
         turtle.select(i)
         turtle.drop()
     end
-    print("Ich habe fertig")
+
+    print("Mining Finished")
 end
 
 --[[===========================================================================
@@ -498,7 +538,8 @@ local exampleGraph = {
 ---==========================================================================]]
 
 function Main()
-    Miner:DigObsidianLake()
+    local miner = initializeMiner()
+    minerDigObsidianLake(miner, LIST_OF_MINERALS.obsidian)
 end
 
 Main()
